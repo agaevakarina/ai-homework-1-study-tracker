@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Учебные задачи на неделю</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #edf2ef;
+      color: #172720;
+      font: 1rem/1.5 system-ui, sans-serif;
+    }
+    main { max-width: 42rem; margin: auto; padding: 1rem; }
+    h1 { font-size: 1.75rem; line-height: 1.2; }
+    h2 { margin: 0 0 .75rem; font-size: 1.125rem; }
+    section {
+      margin-block: 1rem;
+      padding: 1rem;
+      background: white;
+      border: 1px solid #ccd8d0;
+      border-radius: .75rem;
+    }
+    label, input, button { font: inherit; }
+    input[type="text"] {
+      display: block;
+      width: 100%;
+      margin-top: .25rem;
+      padding: .5rem .625rem;
+      border: 1px solid #63776b;
+      border-radius: .375rem;
+    }
+    button {
+      padding: .45rem .7rem;
+      border: 1px solid #63776b;
+      border-radius: .375rem;
+      background: white;
+      color: inherit;
+      cursor: pointer;
+      min-height: 2.75rem;
+    }
+    button[type="submit"], button[aria-pressed="true"] {
+      border-color: #245d46;
+      background: #245d46;
+      color: white;
+    }
+    :focus-visible { outline: 2px solid #215ab0; outline-offset: 2px; }
+    .field { margin-bottom: .75rem; }
+    .error { margin: .25rem 0 0; color: #a52222; }
+    input[aria-invalid="true"] { border-color: #a52222; }
+    .filters { display: flex; flex-wrap: wrap; gap: .375rem; }
+    #summary { margin: 0; }
+    #tasks { list-style: none; margin: .75rem 0 0; padding: 0; }
+    #tasks li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: .5rem;
+      padding: .625rem 0;
+      border-top: 1px solid #ccd8d0;
+    }
+    .task-label {
+      display: flex;
+      flex: 1 1 10rem;
+      align-items: flex-start;
+      gap: .5rem;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .task-label input { flex: none; margin: .3em 0 0; }
+    #empty { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Учебные задачи на неделю</h1>
+
+    <section aria-labelledby="summary-heading">
+      <h2 id="summary-heading">Сводка</h2>
+      <p id="summary" role="status">
+        Всего: <strong id="total"></strong> ч ·
+        Выполнено: <strong id="completed"></strong> ч ·
+        Прогресс: <strong id="progress"></strong>
+      </p>
+    </section>
+
+    <section aria-labelledby="form-heading">
+      <h2 id="form-heading">Новая задача</h2>
+      <form id="task-form" novalidate>
+        <div class="field">
+          <label for="title">Название</label>
+          <input id="title" type="text" required aria-describedby="title-error">
+          <p id="title-error" class="error" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="hours">Часы (от 0,5 до 24, шаг 0,5)</label>
+          <input id="hours" type="text" inputmode="decimal" required aria-describedby="hours-error">
+          <p id="hours-error" class="error" aria-live="polite"></p>
+        </div>
+        <button type="submit">Добавить задачу</button>
+      </form>
+    </section>
+
+    <section aria-labelledby="tasks-heading">
+      <h2 id="tasks-heading">Задачи</h2>
+      <div class="filters" role="group" aria-label="Фильтр задач">
+        <button type="button" data-filter="all" aria-pressed="true">Все</button>
+        <button type="button" data-filter="active" aria-pressed="false">Активные</button>
+        <button type="button" data-filter="done" aria-pressed="false">Готовые</button>
+      </div>
+      <ul id="tasks"></ul>
+      <p id="empty" hidden>Нет задач для отображения.</p>
+    </section>
+  </main>
+
+  <script>
+    const tasks = [
+      { id: 1, title: 'Чтение', hours: 2, done: true },
+      { id: 2, title: 'Практика', hours: 4, done: false },
+      { id: 3, title: 'Повторение', hours: 2, done: false }
+    ];
+    let nextId = 4;
+    let filter = 'all';
+
+    const form = document.getElementById('task-form');
+    const titleInput = document.getElementById('title');
+    const hoursInput = document.getElementById('hours');
+    const taskList = document.getElementById('tasks');
+    const empty = document.getElementById('empty');
+    const filterButtons = document.querySelectorAll('[data-filter]');
+    const numberFormat = new Intl.NumberFormat('ru-RU');
+
+    function renderSummary() {
+      let total = 0;
+      let completed = 0;
+      for (const task of tasks) {
+        total += task.hours;
+        if (task.done) completed += task.hours;
+      }
+      const progress = total === 0 ? 0 : Math.round(100 * completed / total);
+
+      document.getElementById('total').textContent = numberFormat.format(total);
+      document.getElementById('completed').textContent = numberFormat.format(completed);
+      document.getElementById('progress').textContent = progress + '%';
+    }
+
+    function renderList() {
+      const visibleTasks = filter === 'all'
+        ? tasks
+        : tasks.filter(task => task.done === (filter === 'done'));
+      const rows = visibleTasks.map(task => {
+        const row = document.createElement('li');
+        const label = document.createElement('label');
+        label.className = 'task-label';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = task.done;
+        checkbox.setAttribute('aria-label', 'Выполнено: ' + task.title);
+        const taskText = document.createElement('span');
+        taskText.textContent = task.title + ' · ' + numberFormat.format(task.hours) + ' ч';
+        label.append(checkbox, taskText);
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = 'Удалить';
+        remove.setAttribute('aria-label', 'Удалить задачу «' + task.title + '»');
+
+        checkbox.addEventListener('change', () => {
+          task.done = checkbox.checked;
+          renderSummary();
+          if (filter !== 'all') {
+            renderList();
+            focusFilter();
+          }
+        });
+        remove.addEventListener('click', () => {
+          const index = tasks.findIndex(item => item.id === task.id);
+          tasks.splice(index, 1);
+          renderList();
+          renderSummary();
+          focusFilter();
+        });
+
+        row.append(label, remove);
+        return row;
+      });
+
+      taskList.replaceChildren(...rows);
+      empty.hidden = rows.length > 0;
+    }
+
+    function focusFilter() {
+      document.querySelector('[data-filter][aria-pressed="true"]').focus();
+    }
+
+    function showError(input, message) {
+      document.getElementById(input.id + '-error').textContent = message;
+      input.setAttribute('aria-invalid', String(Boolean(message)));
+    }
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const title = titleInput.value.trim();
+      const hoursText = hoursInput.value.trim();
+      const hours = /^\d+(?:[.,]\d+)?$|^[.,]\d+$/.test(hoursText)
+        ? Number(hoursText.replace(',', '.'))
+        : NaN;
+      const validHours = hours >= 0.5 && hours <= 24 && Number.isInteger(hours * 2);
+
+      showError(titleInput, title ? '' : 'Введите название задачи.');
+      showError(hoursInput, validHours ? '' : 'Введите число от 0,5 до 24 с шагом 0,5.');
+      if (!title || !validHours) {
+        (title ? hoursInput : titleInput).focus();
+        return;
+      }
+
+      tasks.push({ id: nextId++, title, hours, done: false });
+      form.reset();
+      renderList();
+      renderSummary();
+      titleInput.focus();
+    });
+
+    for (const button of filterButtons) {
+      button.addEventListener('click', () => {
+        filter = button.dataset.filter;
+        for (const option of filterButtons) {
+          option.setAttribute('aria-pressed', String(option === button));
+        }
+        renderList();
+      });
+    }
+
+    renderList();
+    renderSummary();
+  </script>
+</body>
+</html>
